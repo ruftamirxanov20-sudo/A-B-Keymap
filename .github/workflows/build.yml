@@ -17,23 +17,25 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Unzip Android Project
+    - name: Find and extract Zip file
       run: |
-        unzip A_B_Keymap_Android_Project.zip -d unpacked_project
+        ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" | head -n 1)
+        echo "Found zip: $ZIP_FILE"
+        unzip -o "$ZIP_FILE" -d extracted_project
 
-    - name: Grant execute permission for gradlew
+    - name: Build APK with Gradle
       run: |
-        cd unpacked_project/*
-        chmod +x gradlew
-
-    - name: Build Debug APK with Gradle
-      run: |
-        cd unpacked_project/*
-        ./gradlew assembleDebug
+        cd extracted_project/*/ || cd extracted_project/
+        if [ -f "gradlew" ]; then
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+        else
+          gradle assembleDebug --no-daemon
+        fi
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
-        path: unpacked_project/*/app/build/outputs/apk/debug/app-debug.apk
+        path: extracted_project/**/app/build/outputs/apk/debug/app-debug.apk
         
