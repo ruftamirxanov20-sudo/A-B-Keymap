@@ -1,0 +1,39 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Unzip Android Project
+      run: |
+        unzip A_B_Keymap_Android_Project.zip -d unpacked_project
+
+    - name: Grant execute permission for gradlew
+      run: |
+        cd unpacked_project/*
+        chmod +x gradlew
+
+    - name: Build Debug APK with Gradle
+      run: |
+        cd unpacked_project/*
+        ./gradlew assembleDebug
+
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-debug
+        path: unpacked_project/*/app/build/outputs/apk/debug/app-debug.apk
+        
