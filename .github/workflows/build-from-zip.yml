@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          ZIP_FILE="AZPadView-lightweight-v2.zip"
+          ZIP_FILE="AZPadView-fixed.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
             ZIP_FILE="$(find . -maxdepth 1 -type f -name 'AZPadView-lightweight-v2*.zip' -print -quit)"
