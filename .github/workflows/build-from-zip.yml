@@ -1,4 +1,3 @@
-
 name: Build AZ PadView APK
 
 on:
@@ -13,6 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Download repository
@@ -24,13 +24,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Install Android SDK
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: |
-            platform-tools
-            platforms;android-35
-            build-tools;35.0.0
+          packages: platform-tools
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -44,11 +45,8 @@ jobs:
           ZIP_FILE="AZPadView-fixed.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
-            ZIP_FILE="$(find . -maxdepth 1 -type f -name 'AZPadView-lightweight-v2*.zip' -print -quit)"
-          fi
-
-          if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: AZ PadView ZIP file not found."
+            echo "ERROR: $ZIP_FILE not found in the repository root."
+            ls -la ./*.zip || true
             exit 1
           fi
 
@@ -59,34 +57,40 @@ jobs:
 
           if [ -z "$PROJECT_DIR" ]; then
             echo "ERROR: Android app Gradle file not found in ZIP."
-            echo "ZIP contents:"
             find extracted -maxdepth 4 -type f | head -100
             exit 1
           fi
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Found Android project: $PROJECT_DIR"
+          echo "Building $ZIP_FILE -> $PROJECT_DIR"
 
       - name: Build APK
         shell: bash
         run: |
-          set -e
+          set -eo pipefail
           cd "$PROJECT_DIR"
 
           if [ -f "./gradlew" ]; then
             chmod +x ./gradlew
-            ./gradlew --no-daemon assembleDebug
+            ./gradlew --no-daemon --stacktrace assembleDebug 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
           else
-            gradle --no-daemon assembleDebug
+            gradle --no-daemon --stacktrace assembleDebug 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
           fi
+
+      - name: Upload build log (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: AZ-PadView-debug
-          path: |
-            extracted/**/app/build/outputs/apk/debug/*.apk
-            extracted/app/build/outputs/apk/debug/*.apk
+          path: extracted/**/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          
+          retention-days: 7
